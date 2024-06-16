@@ -521,29 +521,36 @@ print(proyeccion_pagos_anualidades_mu)
 Calcular la prima anual de este plan de beneficios, por edad y sexo, considerando que el monto de la prima aumenta anualmente con inflación.
 
 ```{r}
+# pfma: proyección financiera de los pagos de beneficios de muerte de empleados activos
+# edad: edad de la persona 
+# i: tasa esperada de inflación anual
+# r: tasa real esperada de rendimiento de las inversiones
 
-# w: edad máxima
-# i: tasa esperada de inflación anual (entre 0 y 1)
-# r: tasa real esperada de rendimiento de las inversiones (entre 0 y 1)
-# tm: tabla de mortalidad
-# periodo: año inicial
-# monto: monto del beneficio
-# edad: edad de la persona
-
-seguro_temporal <- function(i, r, tm, periodo, monto, edad){
+seguro_temporal <- function(pfma, edad, i, r){
   
+  # años para que se pensione (acaba seguro temporal)
   n <- 65 - edad
-  tasa_nominal <- i + r
-  px <- 1
+  
+  # tasa para calcular el descuento
+  tasa <- i+r
+  
+  # descontar
+  v <- 1/(1 + tasa)
+  
+  # fila donde debe empezar
+  fila <- nrow(pfma) - (n)
+  
+  # inicializar variable
   suma <- 0
   
-  for(j in 0:(n-1)){
+  for(j in (1:n)){
     
-    qx <- tm[edad+1+j , periodo-1998+j]
-    v <- (1/(1+i+r))^(j+1)
-    inflacion <- (1+i)^j
-    suma <- suma + monto * inflacion * v * px * qx
-    px <- px * (1-tm[edad+2+j, periodo-1998+j+1])
+    # ir diagonalmente sobre la proyección
+    # trae cada proyección a valor presente
+    vp <- pfma[j+fila, j] * v^(j-1)
+
+    # suma cada proyección con valor presente
+    suma <- suma + vp
     
   }
   
@@ -553,41 +560,37 @@ seguro_temporal <- function(i, r, tm, periodo, monto, edad){
 ```
 
 ```{r}
-prueba_temp_joven <- seguro_temporal(0.03, 0.04, tabla_mujeres, 2024, 5000000, 20)
-print(prueba_temp_joven)
 
-prueba_temp_viejo <- seguro_temporal(0.03, 0.04, tabla_mujeres, 2024, 5000000, 60)
-print(prueba_temp_viejo)
-```
+# pfbp: proyección financiera de los pagos de beneficios de muerte de pensionados o proyección financiera de los pagos de anualidades pfpa
+# edad: edad inicial de la persona
+# i: tasa esperada de inflación anual
+# r: tasa real esperada de rendimiento de las inversiones
 
-
-```{r}
-
-# w: edad máxima
-# i: tasa esperada de inflación anual (entre 0 y 1)
-# r: tasa real esperada de rendimiento de las inversiones (entre 0 y 1)
-# tm: tabla de mortalidad
-# periodo: año inicial
-# monto: monto del beneficio
-# edad: edad de la persona
-# w: edad máxima 
-
-seguro_completo <- function(w, i, r, tm, periodo, monto, edad){
+vp_ben_pen <- function(pfmp, edad, i, r){
   
-  periodo <- periodo + (65-edad)
-  edad <- 65
-  n <- w - edad
-  tasa_nominal <- i + r
-  px <- 1
+  # años para que cumpla 115
+  n <- 115 - edad
+  
+  # tasa para calcular el descuento
+  tasa <- i+r
+  
+  # descontar
+  v <- 1/(1 + tasa)
+  
+  # fila donde debe empezar
+  fila <- nrow(pfmp) - (edad - 20)
+  
+  # inicializar variable
   suma <- 0
-  
-  for(j in 0:n){
+
+  for(j in (3:(n+2))){
     
-    qx <- tm[edad+1+j , periodo-1998+j]
-    v <- (1/(1+i+r))^(j+1)
-    inflacion <- (1+i)^j
-    suma <- suma+ monto * inflacion * v * px * qx
-    px <- px * (1-tm[edad+2+j, periodo-1998+j+1])
+    # ir en fila
+    # trae cada proyección a valor presente
+    vp <- pfmp[fila, j] * v^j
+
+    # suma cada proyección con valor presente
+    suma <- suma + vp
     
   }
   
@@ -597,166 +600,115 @@ seguro_completo <- function(w, i, r, tm, periodo, monto, edad){
 ```
 
 ```{r}
-prueba_com_joven <- seguro_completo(115,0.03, 0.04, tabla_mujeres, 2024, 1000000, 20)
-print(prueba_com_joven)
 
-prueba_com_viejo <- seguro_completo(115, 0.03, 0.04, tabla_mujeres, 2024, 1000000, 60)
-print(prueba_com_viejo)
-```
+# pdea: proyección demográfica de la población de empleados activos
+# edad: edad de la persona 
+# i: tasa esperada de inflación anual
+# r: tasa real esperada de rendimiento de las inversiones
 
-
-```{r}
-
-# w: edad máxima
-# i: tasa esperada de inflación anual (entre 0 y 1)
-# r: tasa real esperada de rendimiento de las inversiones (entre 0 y 1)
-# tm: tabla de mortalidad
-# periodo: año inicial
-# monto: monto del beneficio anual
-# edad: edad de la persona
-# w: edad máxima 
-# m: temporalidad
-
-an_vit_mesimo <- function(w, i, r, tm, periodo, monto, edad, m){
+anualidad <- function(pdea, edad, i, r){
   
-  # Ajustar el periodo y la edad a 65 años
-  periodo <- periodo + (65-edad)
-  edad <- 65
+  # años para que se pensione (acaba seguro temporal)
+  n <- 65 - edad
   
-  # Calcular el número de años de la anualidad
-  n <- w - edad
+  # tasa para calcular el descuento
+  tasa <- i+r
   
-  # Tasa nominal combinada de interés e inflación
-  tasa_nominal <- i + r
+  # descontar
+  v <- 1/(1 + tasa)
   
-  # Inicializar variables
-  suma1 <- 0
-  suma2 <- 0
+  # fila donde debe empezar
+  fila <- nrow(pdea) - (n)
   
-  # Calcular el monto del aguinaldo
-  aguinaldo <- (monto*13)/12
+  # inicializar variable
+  suma <- 0
   
-  c <- 0
-  
-  for(j in 0:n){
+  for(j in (1:n)){
     
-    for(k in 0:m){
-      
-      # asumiendo distribución uniforme
-      px <- (1 - ((k+c)/m) * tm[edad+1+j, periodo-1998+j])
-      v <- (1/(1+i+r))^((k+c)/m)
-      inflacion <- (1+i)^j
-      suma1 <- suma1 + (monto + (monto*13)/12) * inflacion * v * px
-      
-    }
-    
-    c <- k
-    suma2 <- suma2 + suma1
+    # ir diagonalmente sobre la proyección
+    # trae cada proyección a valor presente
+    vp <- pdea[j+fila, j+1] * v^(j-1)
+
+    # suma cada proyección con valor presente
+    suma <- suma + vp
     
   }
   
-  return(suma2)
+  return(suma)
   
 }
+
 ```
 
 ```{r}
-prueba_an_joven <- an_vit_mesimo(115, 0.03, 0.04, tabla_mujeres, 2025, 300000, 20, 12)
-print(prueba_an_joven)
 
-prueba_an_viejo <- an_vit_mesimo(115, 0.03, 0.04, tabla_mujeres, 2025, 300000, 60, 12)
-print(prueba_an_viejo)
-```
-
-```{r}
-# Calcular anualidad de las primas considerando que el monto de la prima aumenta anualmente con inflación
-calcular_am <- function(edad, r, i, tm, periodo, w) {
-  am <- 0
-  v <- 1 / (1 + r + i)
-  px <- 1
-  
-  for (t in 0:(w - 1)) { # -1 porque paga por adelantado las primas
-    px <- px * (1 - tm[edad + 2 + t, periodo - 1998 + t + 1]) 
-    am <- am + ((1 + i) * v)^t * px 
-  }
-  
-  return(am)
-}
-```
-
-
-```{r}
-
+# pfma: proyección financiera de los pagos de beneficios de muerte de empleados activos
+# pfbp: proyección financiera de los pagos de beneficios de muerte de pensionados 
+# pfpa: proyección financiera de los pagos de anualidades
+# pdea: proyección demográfica de la población de empleados activos
 # df: base datos con las edades
-# w: edad máxima
-# i: tasa esperada de inflación anual (entre 0 y 1)
-# r: tasa real esperada de rendimiento de las inversiones (entre 0 y 1)
-# tm: tabla de mortalidad
-# periodo: año inicial
-# monto: monto del beneficio anual
-# edad: edad de la persona
-# w: edad máxima 
-# m: temporalidad
+# i: tasa esperada de inflación anual
+# r: tasa real esperada de rendimiento de las inversiones
 
-calcular_primas <- function(df, w, i, r, tm, periodo, m){
+calcular_primas <- function(pfma, pfmp, pfpa, pdea, df, i, r){
   
   # Crear data frame donde almacenar los resultados
   df_primas <- data.frame(matrix(0, ncol = 1, nrow = nrow(df)))
   colnames(df_primas) <- as.character('Prima') 
   
   edades <- unique(df$Edad)
-
+  
   # Calcular el seguro temporal para cada edad única
   seg_temp <- lapply(edades, function(edad) {
     # Llamar la función seguro_temporal con los parámetros especificados
-    seguro_temporal(i, r, tm, periodo, 5000000, edad)
+    seguro_temporal(pfma, edad, i, r)
   })
-  
-  # print(seg_temp)
   
   # Calcular el seguro completo para cada edad única
-  seg_completo <- lapply(edades, function(edad) {
+  seg_diferido <- lapply(edades, function(edad) {
     # Llamar la función seguro_completo con los parámetros especificados
-    seguro_completo(w, i, r, tm, periodo, 1000000, edad)
+    vp_ben_pen(pfmp, edad, i, r)
   })
-  
-  # print(seg_completo)
   
   # Calcular el seguro completo para cada edad única
   an_vit <- lapply(edades, function(edad) {
     # Llamar la función seguro_temporal con los parámetros especificados
-    an_vit_mesimo(w, i, r, tm, periodo, 300000, edad, m)
+    vp_ben_pen(pfpa, edad, i, r)
   })
-  
-  # print(an_vit)
-  
+
   # Calcular anualidad de las primas considerando que el monto de la prima aumenta anualmente con inflación
   calc_am <- lapply(edades, function(edad) {
-    calcular_am(edad, r, i, tm, periodo, w)
+    anualidad(pdea, edad, i, r)
   })
-  
-  print(calc_am)
   
   # Convertir listas a vectores
   seg_temp <- unlist(seg_temp)
-  seg_completo <- unlist(seg_completo)
+  seg_diferido <- unlist(seg_diferido)
   an_vit <- unlist(an_vit)
   calc_am <- unlist(calc_am)
   
   # Usar mapply para sumar valores correspondientes y dividir por am
-  df_primas$Prima <- mapply(function(temp, completo, vit, am) {
-    (temp + completo + vit) / am
-  }, seg_temp, seg_completo, an_vit, calc_am)
+  df_primas$Prima <- mapply(function(temp, diferido, vit, am) {
+    (temp + diferido + vit) / am
+  }, seg_temp, seg_diferido, an_vit, calc_am)
   
-  return(df_primas)
+  df <- cbind(df, df_primas)
+  
+  return(df)
   
 }
 ```
 
 ```{r}
-prueba <- calcular_primas(empleados_edad_mu, 115, 0.03, 0.04, tabla_mujeres, 2024, 12)
+primas_mujeres <- calcular_primas(beneficios_muerte_activos_mu, beneficios_muerte_pensionados_mu, proyeccion_pagos_anualidades_mu, sobrevivencia_mujeres_activos, empleados_edad_mu, 0.03, 0.04)
 
-print(prueba)
+print(primas_mujeres)
+```
+
+```{r}
+primas_hombres <- calcular_primas(beneficios_muerte_activos_ho, beneficios_muerte_pensionados_ho, proyeccion_pagos_anualidades_ho, sobrevivencia_hombres_activos, empleados_edad_mu, 0.03, 0.04)
+
+print(primas_hombres)
 ```
 
 
