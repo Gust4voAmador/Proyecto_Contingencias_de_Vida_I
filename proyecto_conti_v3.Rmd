@@ -25,9 +25,9 @@ tabla_hombres <- read_excel("MortalidadesSupen.xlsx",
     sheet = "Hombre", range = "A6:EW122")
 tabla_mujeres <- read_excel("MortalidadesSupen.xlsx", 
     sheet = "Mujer", range = "A5:EW121")
-View(base_datos)
+View(tabla_hombres)
 
-tabla_hombres
+
 ```
 
 ```{r}
@@ -476,7 +476,6 @@ print(beneficios_muerte_pensionados_mu)
 ```
 
 ## Inciso g
--------------------------------------------------------------------------------
 Proyección financiera de los pagos de anualidades
 
 ```{r}
@@ -712,7 +711,7 @@ print(primas_hombres)
 ```
 
 
-## Inciso i 
+## Inciso i
 
 Calcule una prima media nivelada para toda la población considerando que el monto aumenta anualmente con inflación.
 
@@ -808,25 +807,35 @@ calcular_primas_niveladas <- function(qx) {
 }
 ```
 
+
+
+#Ejercicio 2
+Crear matriz de probabilidades para hombres y mujeres
 ```{r}
-primas_niveladas_calculadas <- calcular_primas_niveladas(probabilidades_mortalidad)
-suma_vp <- sum(primas_niveladas_calculadas$vp)
-prima_nivelada <- suma_vp / sum(primas_niveladas_calculadas$anualidad) #suma vp cada prima/anualidda de cada prima
 
-print(paste("La prima nivelada resultante es:", round(prima_nivelada, 2)))
+# Crear una matriz de 45 filas y 96 columnas, inicializada con NA
+matriz_ho <- matrix(NA, nrow = 45, ncol = 96)
+matriz_mu <- matrix(NA, nrow = 45, ncol = 96)
+
+# Llenar matriz hombres
+for (i in 1:45) {
+  for (j in 1:96) {
+    valor <- as.numeric(tabla_hombres[(19+i) + j, 25 + j])
+    matriz_ho[i, j] <- ifelse(is.na(valor), 1, valor)
+  }
+}
+
+# Llenar matriz mujeres
+for (i in 1:45) {
+  for (j in 1:96) {
+    valor <- as.numeric(tabla_mujeres[(19+i) + j, 25 + j])
+    matriz_mu[i, j] <- ifelse(is.na(valor), 1, valor)
+  }
+}
+
+print(matriz_mu)
+
 ```
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
