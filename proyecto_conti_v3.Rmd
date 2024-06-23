@@ -848,6 +848,18 @@ colnames(matriz_mu) <- vec_annos
 
 ```
 
+Función que hace falsos desde el primer falso
+```{r}
+ejectuar_false <- function(fila) {
+  
+  false1 <- which(!fila)[1]
+  if (!is.na(false1)) {
+    fila[(false1 + 1):length(fila)] <- FALSE
+  }
+  return(fila)
+}
+```
+
 
 ## Función que ejecuta las iteraciones
 
