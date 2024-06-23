@@ -25,7 +25,7 @@ tabla_hombres <- read_excel("MortalidadesSupen.xlsx",
     sheet = "Hombre", range = "A6:EW122")
 tabla_mujeres <- read_excel("MortalidadesSupen.xlsx", 
     sheet = "Mujer", range = "A5:EW121")
-View(tabla_hombres)
+#View(tabla_hombres)
 
 
 ```
@@ -44,7 +44,7 @@ base_datos$Edad <- floor(interval(base_datos$`Fecha de nacimiento`, fecha_corte)
 df_empleados_ho <- base_datos %>% filter(Sexo == "M")
 df_empleados_mu <- base_datos %>% filter(Sexo == "F")
 
-# Agrupar por edad y contar numero en cada edad
+#Agrupar por edad y contar numer_ho %>% group_by(Edad) %>% summarise(Numero_de_empleados = n())
 empleados_edad_ho <- df_empleados_ho %>% group_by(Edad) %>% summarise(Numero_de_empleados = n())
 empleados_edad_mu <- df_empleados_mu %>% group_by(Edad) %>% summarise(Numero_de_empleados = n())
 
@@ -809,7 +809,9 @@ calcular_primas_niveladas <- function(qx) {
 
 
 
+
 #Ejercicio 2
+
 Crear matriz de probabilidades para hombres y mujeres
 ```{r}
 
@@ -833,9 +835,114 @@ for (i in 1:45) {
   }
 }
 
-print(matriz_mu)
+#Cada fila de la matriz representa la persona de esa edad y su evolución
+#Asígnar indices y columnas a la matriz
+vec_annos <- 2024:2119 # 96 años
+vec_edad <- 20:64     # 45 edades
+
+#Nombrar las columnas y filas
+rownames(matriz_ho) <- vec_edad
+colnames(matriz_ho) <- vec_annos
+rownames(matriz_mu) <- vec_edad
+colnames(matriz_mu) <- vec_annos
 
 ```
+
+
+## Función que ejecuta las iteraciones
+
+```{r}
+
+# Definir la función para ejecutar la simulación estocástica
+calculo_prim_estocas <- function(matriz_prob_muertes, num_iteraciones, edades_personas, v) {
+  # Matriz para guardar las primas de cada iteración, cada vector fila es una iteración
+  matriz_primas <- matrix(NA, nrow = num_iteraciones, ncol = 45)
+  
+  for (iteracion in 1:num_iteraciones) {
+    # Generar matriz de probabilidades de sobrevivencia, son aleatorias N(0,1)
+    matriz_ramdons_sob <- pnorm(matrix(rnorm(nrow(matriz_prob_muertes) * ncol(matriz_prob_muertes)), nrow = nrow(matriz_prob_muertes), ncol = ncol(matriz_prob_muertes)))
+    
+    # Comparación de matrices
+    matriz_booleana <- matriz_prob_muertes < matriz_ramdons_sob
+    
+    # Llama y ejecuta la función 'ejecutar_false' para hacer que a partir del primer FALSE todos lo sean
+    matriz_booleana <- t(apply(matriz_booleana, 1, ejectuar_false))
+    
+    # Se crea un vector con la cantidad de años vividos por persona
+    anno_muerte <- sapply(1:nrow(matriz_booleana), function(i) which(matriz_booleana[i, ] == FALSE)[1] - 1)
+    
+    # Se procede a calcular el beneficio para cada persona iterando en cada fila vectorizando
+    vec_total_benef <- sapply(1:nrow(matriz_booleana), function(i) {
+      # Es la edad de cada persona a inicios del 2024
+      edad_inicial <- edades_personas[i]
+      # Calcula la edad que tenía cada persona al morir
+      edad_muerte <- edad_inicial + anno_muerte[i] - 1
+      # Calcula cuantos años después de los 65 vivió cada persona
+      annos_despues65 <- max(0, edad_muerte - 65)
+      # Verifica si murió antes de los 65 y paga el beneficio
+      pago_antes_65 <- ifelse(edad_muerte < 65, 5000000 / ((1 + v) ^ anno_muerte[i]), 0)
+      # Verifica si vivió a los 65 o más y se le paga anualidad
+      pago_anualidad <- ifelse(edad_muerte >= 65, sum(sapply(1:annos_despues65, function(j) 300000 / ((1 + v) ^ (anno_muerte[i] - annos_despues65 + j)))), 0)
+      # Verifica si murió a los 65 o más y paga el beneficio final
+      pago_final <- ifelse(edad_muerte >= 65, 1000000 / ((1 + v) ^ anno_muerte[i]), 0)
+      # Suma las 3 matrices de los casos para devolver el vector de beneficio total
+      return(pago_antes_65 + pago_anualidad + pago_final)
+    })
+    
+    # Se calcula la anualidad de cada persona basado en los años que vivió
+    vec_anualidades <- sapply(1:nrow(matriz_booleana), function(k) sum((1 + v) ^ -(0:(min(anno_muerte[k], (45 - k))))))
+    # Vector de las primas para cada persona
+    vec_primas <- vec_total_benef / vec_anualidades
+    
+    # Añadir vector de primas a la lista de iteraciones
+    matriz_primas[iteracion, ] <- vec_primas 
+  }
+  return(matriz_primas)
+}
+
+
+```
+
+```{r}
+#ini <- Sys.time()
+#pepe <- calculo_prim_estocas(matriz_ho, 1, c(20:64), ((1.04) * (1.03)) - 1)
+#fin <- Sys.time()
+#print(fin - ini)
+#print(pepe)
+```
+
+Obtener matrices con las primas de 100 iteraciones del modelo estocástico.
+```{r}
+#Tasa de rendimiento e inflación
+v <- ((1.04) * (1.03)) - 1
+
+matriz_primas_ho <- calculo_prim_estocas(matriz_ho, 100, c(20:64), v)
+matriz_primas_mu <- calculo_prim_estocas(matriz_ho, 100, c(20:64), v)
+
+```
+
+Calcular percentiles para cada edad
+```{r}
+# Calcular el percentil 50 para cada columna
+percentiles_50_ho <- apply(matriz_primas_ho, 2, median)
+percentiles_50_mu <- apply(matriz_primas_mu, 2, median)
+# Calcular el percentil 90 para cada columna
+percentiles_90_ho <- apply(matriz_primas_ho, 2, function(x) quantile(x, 0.9))
+percentiles_90_mu <- apply(matriz_primas_mu, 2, function(x) quantile(x, 0.9))
+```
+
+Crear Data Frames para cada sexo con los resultados
+```{r}
+
+df_primas_ho <- data.frame(Edad = 20:64, Percentil_50 = percentiles_50_ho, Percentil_90 = percentiles_90_ho)
+df_primas_mu <- data.frame(Edad = 20:64, Percentil_50 = percentiles_50_mu, Percentil_90 = percentiles_90_mu)
+
+print(df_primas_ho)
+print(df_primas_mu)
+```
+
+
+
 
 
 
