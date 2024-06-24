@@ -888,7 +888,7 @@ calculo_prim_estocas <- function(matriz_prob_muertes, num_iteraciones, edades_pe
       # Es la edad de cada persona a inicios del 2024
       edad_inicial <- edades_personas[i]
       # Calcula la edad que tenía cada persona al morir
-      edad_muerte <- edad_inicial + anno_muerte[i] - 1
+      edad_muerte <- edad_inicial + anno_muerte[i] #- 1
       # Calcula cuantos años después de los 65 vivió cada persona
       annos_despues65 <- max(0, edad_muerte - 65)
       # Verifica si murió antes de los 65 y paga el beneficio
